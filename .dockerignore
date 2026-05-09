@@ -1,0 +1,44 @@
+# Keep the image lean — these belong on dev machines or in CI artefacts, not in the container.
+
+.git
+.github
+.gitignore
+
+# Python local artefacts
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+htmlcov
+
+# Dev-only data — Chroma is re-seeded by the Dockerfile RUN step.
+.chroma
+
+# Secrets & local-only configs (never ship!)
+.env
+.mcp.json
+
+# OS / editor noise
+.DS_Store
+.idea
+.vscode
+
+# Tests don't need to ship to runtime image; we keep them in repo for local dev.
+tests/
+playwright-report/
+test-results/
+
+# Streamlit legacy UI not used at runtime in this image.
+app.py
+
+# Docs are great on GitHub but not needed in the running image.
+docs/
+
+# Build artefacts
+*.egg-info
+dist/
+build/

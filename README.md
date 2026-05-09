@@ -1,3 +1,15 @@
+---
+title: Incident Analysis Suite
+emoji: 🚨
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: Multi-agent LangGraph + Claude pipeline for ops-incident analysis
+---
+
 # Multi-Agent DevOps Incident Analysis Suite
 
 An AI-powered incident response pipeline that ingests raw operational logs, classifies failures, retrieves similar past incidents from a vector store, recommends remediation, runs that remediation through a self-critique safety check, and dispatches actionable artifacts to Slack and JIRA — coordinated by a **LangGraph** orchestrator running specialist Claude agents in series and in parallel.
