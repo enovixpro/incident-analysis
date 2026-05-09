@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Multi-agent LangGraph + Claude pipeline for ops-incident analysis
+short_description: Multi-agent LangGraph + Claude pipeline for ops triage
 ---
 
 # Multi-Agent DevOps Incident Analysis Suite
