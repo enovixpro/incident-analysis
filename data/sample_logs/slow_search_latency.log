@@ -1,0 +1,17 @@
+{"timestamp":"2026-04-18T09:00:01Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 142ms"}
+{"timestamp":"2026-04-18T09:30:02Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 156ms"}
+{"timestamp":"2026-04-18T10:15:00Z","level":"INFO","source":"search-svc","message":"Nightly index rebuild started for products_v2"}
+{"timestamp":"2026-04-18T10:42:14Z","level":"INFO","source":"search-svc","message":"Index rebuild complete: products_v2 (4.2M docs in 27m)"}
+{"timestamp":"2026-04-18T10:42:15Z","level":"INFO","source":"search-svc","message":"Switched search traffic to products_v2 index"}
+{"timestamp":"2026-04-18T10:42:32Z","level":"WARN","source":"search-svc","message":"GET /api/search 200 in 3214ms (slow)"}
+{"timestamp":"2026-04-18T10:43:08Z","level":"WARN","source":"search-svc","message":"GET /api/search 200 in 4180ms (slow)"}
+{"timestamp":"2026-04-18T10:43:42Z","level":"WARN","source":"search-svc","message":"GET /api/search 200 in 3920ms (slow)"}
+{"timestamp":"2026-04-18T10:44:01Z","level":"WARN","source":"search-svc","message":"p99 latency on /api/search: 4200ms (5min window) - baseline 180ms"}
+{"timestamp":"2026-04-18T10:44:32Z","level":"WARN","source":"search-svc","message":"GET /api/search 200 in 4830ms (slow)"}
+{"timestamp":"2026-04-18T10:45:00Z","level":"WARN","source":"alertmanager","message":"alert=SearchLatencyElevated severity=warning state=firing p99=4200ms"}
+{"timestamp":"2026-04-18T10:48:14Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 3621ms"}
+{"timestamp":"2026-04-18T10:52:42Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 2908ms"}
+{"timestamp":"2026-04-18T10:58:01Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 1842ms"}
+{"timestamp":"2026-04-18T11:02:18Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 982ms"}
+{"timestamp":"2026-04-18T11:08:42Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 421ms - cache warmup progressing"}
+{"timestamp":"2026-04-18T11:15:00Z","level":"INFO","source":"search-svc","message":"GET /api/search 200 in 198ms - back to baseline"}

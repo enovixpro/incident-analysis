@@ -1,0 +1,14 @@
+anthropic>=0.40.0
+langgraph>=0.2.50
+streamlit>=1.40.0
+pydantic>=2.9.0
+chromadb>=0.5.20
+slack-sdk>=3.33.0
+atlassian-python-api>=3.41.0
+python-dotenv>=1.0.1
+pytest>=8.3.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+sse-starlette>=2.1.0
+mcp[cli]>=1.27.0
+pytest-playwright>=0.7.0

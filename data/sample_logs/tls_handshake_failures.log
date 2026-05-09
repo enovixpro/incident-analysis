@@ -1,0 +1,17 @@
+2026-04-16T03:00:01Z INFO cert-manager: Certificate cluster-mesh-ca renewal triggered (90 days remaining at trigger time)
+2026-04-16T03:00:02Z ERROR cert-manager: Failed to renew Certificate "cluster-mesh-ca": IAM AccessDenied for kms:Sign on key arn:aws:kms:us-east-1:1234:key/abc
+2026-04-16T03:00:02Z WARN cert-manager: Will retry renewal of cluster-mesh-ca in 1h
+2026-04-16T03:30:42Z ERROR cert-manager: Certificate cluster-mesh-ca has EXPIRED (renewal still failing: IAM AccessDenied)
+2026-04-16T03:30:51Z ERROR istio-proxy/orders-svc: TLS error - SSL routines:tls_process_server_certificate: certificate verify failed (issuer cert expired)
+2026-04-16T03:30:51Z ERROR istio-proxy/orders-svc: UPSTREAM_RESET_BEFORE_RESPONSE_STARTED|connection_failure host=payment-svc.payment.svc.cluster.local:443
+2026-04-16T03:30:53Z ERROR istio-proxy/orders-svc: UPSTREAM_RESET_BEFORE_RESPONSE_STARTED|connection_failure host=inventory-svc.inventory.svc.cluster.local:443
+2026-04-16T03:31:02Z ERROR istio-proxy/payment-svc: TLS handshake failure with database-proxy.db.svc.cluster.local:443 - certificate signed by unknown authority
+2026-04-16T03:31:15Z ERROR istio-proxy/checkout-svc: 503 upstream_reset_before_response_started{connection_failure}
+2026-04-16T03:31:16Z ERROR ingress-controller: 503 Service Unavailable for /api/checkout
+2026-04-16T03:31:30Z CRITICAL alertmanager: alert=ServiceMeshDown severity=page state=firing affected_services=12 error_rate=83%
+2026-04-16T03:31:42Z ERROR istiod: Push to envoy proxies failing - SDS server rejecting cert requests with stale CA
+2026-04-16T03:31:55Z ERROR istio-proxy/users-svc: TLS handshake failed - certificate has expired
+2026-04-16T03:32:08Z ERROR istio-proxy/notifications-svc: TLS handshake failed - certificate has expired
+2026-04-16T03:32:15Z ERROR ingress-controller: 503 Service Unavailable for /api/users
+2026-04-16T03:32:42Z ERROR istio-proxy/recommendations-svc: TLS handshake failed - x509: certificate has expired or is not yet valid
+2026-04-16T03:33:01Z CRITICAL alertmanager: alert=GlobalErrorRateHigh severity=page state=firing rate=87%

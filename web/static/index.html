@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incident Analysis Suite</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E%E2%96%B2%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">▲</span>
+      <span class="brand-title">Incident Analysis Suite</span>
+      <span class="brand-tag">multi-agent · live</span>
+    </div>
+    <div class="topbar-right">
+      <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle light / dark mode" aria-label="Toggle theme">
+        <svg class="theme-icon theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <svg class="theme-icon theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+      <div class="cost-meter" id="cost-meter" title="Per-run token usage and estimated USD cost">
+        <span class="cost-cell"><span class="cost-label">cost</span><span class="cost-value" id="cost-usd">$0.0000</span></span>
+        <span class="cost-cell"><span class="cost-label">in</span><span class="cost-value" id="cost-in">0</span></span>
+        <span class="cost-cell"><span class="cost-label">out</span><span class="cost-value" id="cost-out">0</span></span>
+        <span class="cost-cell"><span class="cost-label">cache↓</span><span class="cost-value" id="cost-cache-read">0</span></span>
+        <span class="cost-cell"><span class="cost-label">cache hit</span><span class="cost-value" id="cost-hit">—</span></span>
+      </div>
+      <div class="env-pills" id="env-pills">
+        <span class="pill pill-pending" id="pill-anthropic">Anthropic …</span>
+        <span class="pill pill-pending" id="pill-slack">Slack …</span>
+        <span class="pill pill-pending" id="pill-jira">JIRA …</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <!-- LEFT: log source / stream -->
+    <section class="panel" id="panel-log">
+      <div class="panel-head">
+        <h2>Log source</h2>
+        <span class="panel-sub" id="log-meta">no log loaded</span>
+      </div>
+
+      <div class="log-controls">
+        <select id="sample-select"><option value="">Pick a sample…</option></select>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-run" disabled>Run pipeline</button>
+          <button class="btn btn-ghost" id="btn-tail" disabled title="Stream the log line-by-line, then run">Tail mode</button>
+        </div>
+        <label class="toggle" title="Critic uses a stricter rubric — biases toward rejection so the loop-back edge fires.">
+          <input type="checkbox" id="strict-toggle">
+          <span>Strict critic <em>(force the self-critique loop)</em></span>
+        </label>
+        <label class="upload">
+          <input type="file" id="file-input" accept=".log,.txt,.json">
+          <span>or upload a file…</span>
+        </label>
+      </div>
+
+      <pre class="log-stream" id="log-stream"></pre>
+    </section>
+
+    <!-- MIDDLE: animated DAG -->
+    <section class="panel panel-graph" id="panel-graph">
+      <div class="panel-head">
+        <h2>Pipeline</h2>
+        <span class="panel-sub" id="graph-status">idle</span>
+      </div>
+      <div class="mermaid-host" id="mermaid-host"></div>
+      <div class="legend">
+        <span class="legend-item"><i class="dot dot-idle"></i> idle</span>
+        <span class="legend-item"><i class="dot dot-active"></i> running</span>
+        <span class="legend-item"><i class="dot dot-done"></i> done</span>
+        <span class="legend-item"><i class="dot dot-error"></i> error</span>
+      </div>
+    </section>
+
+    <!-- RIGHT: results -->
+    <section class="panel" id="panel-results">
+      <div class="panel-head">
+        <h2>Results</h2>
+        <span class="panel-sub" id="results-meta">awaiting run</span>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab tab-active" data-tab="incidents">Incidents</button>
+        <button class="tab" data-tab="slack">Slack</button>
+        <button class="tab" data-tab="jira">JIRA</button>
+        <button class="tab" data-tab="cookbook">Cookbook</button>
+        <button class="tab" data-tab="trace">Trace</button>
+      </nav>
+      <div class="tab-bodies">
+        <div class="tab-body tab-active" data-tab="incidents" id="body-incidents">
+          <p class="empty">Run the pipeline to populate.</p>
+        </div>
+        <div class="tab-body" data-tab="slack" id="body-slack"><p class="empty">No Slack messages yet.</p></div>
+        <div class="tab-body" data-tab="jira" id="body-jira"><p class="empty">No JIRA tickets yet.</p></div>
+        <div class="tab-body" data-tab="cookbook" id="body-cookbook"><p class="empty">No runbook entries yet.</p></div>
+        <div class="tab-body" data-tab="trace" id="body-trace"><p class="empty">No trace yet.</p></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Floating "Ask" FAB — opens the assistant drawer -->
+  <button class="chat-fab" id="chat-toggle" type="button" title="Open the dashboard assistant" aria-label="Open assistant">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+    </svg>
+  </button>
+
+  <!-- Slide-out assistant drawer -->
+  <aside class="chat-drawer" id="chat-drawer" inert>
+    <header class="chat-head">
+      <div class="chat-title">
+        <span class="chat-title-mark">◆</span>
+        <span>Assistant</span>
+        <span class="chat-title-sub">context-aware · this run</span>
+      </div>
+      <button class="chat-close" id="chat-close" type="button" aria-label="Close assistant">×</button>
+    </header>
+
+    <div class="chat-suggestions" id="chat-suggestions">
+      <button class="chat-chip" data-prompt="Summarize this run in 3 bullets.">Summarize this run</button>
+      <button class="chat-chip" data-prompt="Why was each incident scored at its severity?">Why this severity?</button>
+      <button class="chat-chip" data-prompt="Walk me through the critic's reasoning for each remediation.">Explain critic's reasoning</button>
+      <button class="chat-chip" data-prompt="Given the current state, what should the on-call do next?">What should I do next?</button>
+    </div>
+
+    <div class="chat-thread" id="chat-thread">
+      <div class="chat-msg chat-msg-assistant chat-msg-system">
+        Ask me anything about the current run — I can see the same incidents, remediations,
+        critic verdicts, and JIRA / Slack outputs you do. Try a suggestion above or type below.
+      </div>
+    </div>
+
+    <form class="chat-composer" id="chat-composer">
+      <textarea id="chat-input" rows="2" placeholder="Ask about the run, an incident, the critic's reasoning…"></textarea>
+      <button class="btn btn-primary chat-send" id="chat-send" type="submit" disabled>Send</button>
+    </form>
+  </aside>
+
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

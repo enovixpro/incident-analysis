@@ -1,0 +1,22 @@
+2026-04-12T14:22:10Z INFO kubelet: Pulling image "registry.internal/payment-service:v2.4.1"
+2026-04-12T14:22:14Z INFO kubelet: Successfully pulled image "registry.internal/payment-service:v2.4.1"
+2026-04-12T14:22:15Z INFO kubelet: Created container payment-service
+2026-04-12T14:22:15Z INFO kubelet: Started container payment-service
+2026-04-12T14:22:16Z ERROR payment-service: panic: runtime error: invalid memory address or nil pointer dereference
+2026-04-12T14:22:16Z ERROR payment-service: goroutine 1 [running]:
+2026-04-12T14:22:16Z ERROR payment-service: main.loadConfig(0x0)
+2026-04-12T14:22:16Z ERROR payment-service:   /app/main.go:42 +0x12c
+2026-04-12T14:22:16Z ERROR payment-service: main.main()
+2026-04-12T14:22:16Z ERROR payment-service:   /app/main.go:18 +0x88
+2026-04-12T14:22:17Z WARN kubelet: Container payment-service exited with code 2
+2026-04-12T14:22:17Z WARN kubelet: Back-off restarting failed container
+2026-04-12T14:22:32Z INFO kubelet: Restarting container payment-service (attempt 2)
+2026-04-12T14:22:33Z ERROR payment-service: panic: runtime error: invalid memory address or nil pointer dereference
+2026-04-12T14:22:33Z WARN kubelet: Container payment-service exited with code 2
+2026-04-12T14:23:05Z INFO kubelet: Restarting container payment-service (attempt 3)
+2026-04-12T14:23:06Z ERROR payment-service: panic: runtime error: invalid memory address or nil pointer dereference
+2026-04-12T14:23:06Z WARN kubelet: Container payment-service exited with code 2
+2026-04-12T14:23:06Z ERROR kubelet: Pod payment-service-7d8f9c-xkj2m is in CrashLoopBackOff
+2026-04-12T14:23:30Z WARN scheduler: Pod payment-service-7d8f9c-xkj2m has been restarting too frequently; backing off
+2026-04-12T14:24:15Z ERROR ingress-controller: upstream connect error or disconnect/reset before headers, host=payment-service:8080
+2026-04-12T14:24:15Z ERROR ingress-controller: 503 Service Unavailable

@@ -1,0 +1,20 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.chroma/
+.pytest_cache/
+.venv/
+venv/
+.DS_Store
+*.egg-info/
+.coverage
+htmlcov/
+.streamlit/secrets.toml
+
+# Machine-specific MCP client config (uses absolute paths). Format documented in docs/OPERATING.md.
+.mcp.json
+
+# Playwright browser-test artefacts
+test-results/
+playwright-report/

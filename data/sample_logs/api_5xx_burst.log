@@ -1,0 +1,17 @@
+{"timestamp":"2026-04-12T18:01:02.123Z","level":"INFO","source":"checkout-service","message":"Server started on port 8080"}
+{"timestamp":"2026-04-12T18:42:10.001Z","level":"WARN","source":"checkout-service","message":"db connection pool at 80% utilization (40/50)"}
+{"timestamp":"2026-04-12T18:42:48.412Z","level":"WARN","source":"checkout-service","message":"db connection pool at 95% utilization (47/50)"}
+{"timestamp":"2026-04-12T18:43:11.802Z","level":"ERROR","source":"checkout-service","message":"db.Acquire timed out after 5s: pool exhausted"}
+{"timestamp":"2026-04-12T18:43:11.910Z","level":"ERROR","source":"checkout-service","message":"POST /api/checkout 503 in 5021ms"}
+{"timestamp":"2026-04-12T18:43:12.301Z","level":"ERROR","source":"checkout-service","message":"db.Acquire timed out after 5s: pool exhausted"}
+{"timestamp":"2026-04-12T18:43:12.405Z","level":"ERROR","source":"checkout-service","message":"POST /api/checkout 503 in 5034ms"}
+{"timestamp":"2026-04-12T18:43:13.118Z","level":"ERROR","source":"checkout-service","message":"db.Acquire timed out after 5s: pool exhausted"}
+{"timestamp":"2026-04-12T18:43:13.220Z","level":"ERROR","source":"checkout-service","message":"POST /api/checkout 503 in 5089ms"}
+{"timestamp":"2026-04-12T18:43:18.005Z","level":"WARN","source":"postgres","message":"long-running query: pid=4421 duration=2104s query=SELECT count(*) FROM events WHERE..."}
+{"timestamp":"2026-04-12T18:43:22.910Z","level":"ERROR","source":"checkout-service","message":"upstream postgres unreachable; circuit breaker open"}
+{"timestamp":"2026-04-12T18:43:30.001Z","level":"CRITICAL","source":"alertmanager","message":"alert=CheckoutErrorRateHigh severity=page state=firing rate=78%"}
+{"timestamp":"2026-04-12T18:44:15.444Z","level":"ERROR","source":"checkout-service","message":"GET /api/cart 503 in 5012ms"}
+{"timestamp":"2026-04-12T18:44:22.901Z","level":"ERROR","source":"checkout-service","message":"POST /api/checkout 503 in 5045ms"}
+{"timestamp":"2026-04-12T18:46:01.220Z","level":"INFO","source":"oncall","message":"DBA terminated runaway pid=4421"}
+{"timestamp":"2026-04-12T18:46:18.802Z","level":"INFO","source":"checkout-service","message":"db connection pool at 40% utilization (20/50)"}
+{"timestamp":"2026-04-12T18:46:25.002Z","level":"INFO","source":"checkout-service","message":"POST /api/checkout 200 in 142ms"}

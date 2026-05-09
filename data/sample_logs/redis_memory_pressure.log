@@ -1,0 +1,17 @@
+{"timestamp":"2026-04-15T08:12:01Z","level":"INFO","source":"redis-cache-0","message":"Server started, Redis 7.2.4 listening on 6379"}
+{"timestamp":"2026-04-15T14:01:32Z","level":"INFO","source":"redis-cache-0","message":"used_memory:3.21G maxmemory:4.00G connected_clients:124 hit_rate:0.94"}
+{"timestamp":"2026-04-15T15:43:12Z","level":"WARN","source":"redis-cache-0","message":"Memory usage at 92% of maxmemory (3.68G/4.00G)"}
+{"timestamp":"2026-04-15T15:48:55Z","level":"WARN","source":"redis-cache-0","message":"used_memory:3.95G maxmemory:4.00G - approaching limit"}
+{"timestamp":"2026-04-15T15:51:22Z","level":"WARN","source":"redis-cache-0","message":"Maxmemory reached: 4.00G/4.00G - allkeys-lru eviction policy active"}
+{"timestamp":"2026-04-15T15:51:23Z","level":"INFO","source":"redis-cache-0","message":"evicted_keys:142 in last 1s"}
+{"timestamp":"2026-04-15T15:52:01Z","level":"INFO","source":"redis-cache-0","message":"evicted_keys:1284 in last 30s"}
+{"timestamp":"2026-04-15T15:52:30Z","level":"WARN","source":"redis-cache-0","message":"hit_rate dropped to 0.62 (baseline 0.94)"}
+{"timestamp":"2026-04-15T15:53:11Z","level":"WARN","source":"product-svc","message":"Cache miss rate elevated, falling back to DB queries (current: 38%, baseline: 6%)"}
+{"timestamp":"2026-04-15T15:54:02Z","level":"WARN","source":"postgres-primary","message":"Active connections: 142/200 (normal: 35/200)"}
+{"timestamp":"2026-04-15T15:55:18Z","level":"ERROR","source":"product-svc","message":"DB query timeout after 5s on getProductById, request_id=abc123"}
+{"timestamp":"2026-04-15T15:55:42Z","level":"ERROR","source":"product-svc","message":"DB query timeout after 5s on listCategories, request_id=def456"}
+{"timestamp":"2026-04-15T15:56:01Z","level":"WARN","source":"postgres-primary","message":"Active connections: 198/200 - approaching pool exhaustion"}
+{"timestamp":"2026-04-15T15:56:30Z","level":"CRITICAL","source":"alertmanager","message":"alert=ProductSvcLatencyHigh severity=page state=firing p99=4200ms baseline=180ms"}
+{"timestamp":"2026-04-15T15:57:14Z","level":"ERROR","source":"product-svc","message":"GET /api/products/featured 503 in 5012ms"}
+{"timestamp":"2026-04-15T15:57:52Z","level":"INFO","source":"redis-cache-0","message":"evicted_keys:8492 total in last 5min"}
+{"timestamp":"2026-04-15T15:58:03Z","level":"ERROR","source":"product-svc","message":"GET /api/products/list 503 in 5024ms"}

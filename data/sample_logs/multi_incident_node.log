@@ -1,0 +1,21 @@
+2026-04-17T08:42:14Z WARN postgres-primary: Active connections: 178/200 - high watermark
+2026-04-17T08:42:48Z WARN postgres-primary: long-running query pid=8821 duration=1820s query=SELECT count(*) FROM events_archive WHERE...
+2026-04-17T08:43:11Z ERROR billing-svc: db.Acquire timed out after 5s - connection pool exhausted
+2026-04-17T08:43:12Z ERROR billing-svc: POST /api/billing/charge 503 in 5024ms
+2026-04-17T08:43:18Z ERROR billing-svc: db.Acquire timed out after 5s - connection pool exhausted
+2026-04-17T08:43:30Z CRITICAL alertmanager: alert=BillingErrorRateHigh severity=page state=firing rate=64% service=billing-svc
+2026-04-17T08:44:42Z ERROR billing-svc: POST /api/billing/charge 503 in 5034ms
+2026-04-17T08:46:01Z INFO oncall: DBA terminated runaway pid=8821 - billing recovering
+2026-04-17T08:48:25Z INFO billing-svc: POST /api/billing/charge 200 in 187ms - service restored
+2026-04-17T13:15:02Z INFO kubelet: coredns-7d4b8c-mj4xz pod terminated, scheduling replacement
+2026-04-17T13:15:08Z ERROR coredns: Failed to start: invalid forward configuration in Corefile (line 14: unrecognized directive)
+2026-04-17T13:15:08Z WARN coredns-7d4b8c-mj4xz: CrashLoopBackOff (3rd restart)
+2026-04-17T13:15:42Z ERROR users-svc: dial tcp: lookup auth-svc.auth.svc.cluster.local: no such host
+2026-04-17T13:15:43Z ERROR users-svc: dial tcp: lookup notifications-svc.notifications.svc.cluster.local: no such host
+2026-04-17T13:15:55Z ERROR orders-svc: dial tcp: lookup payment-svc.payment.svc.cluster.local: no such host - SERVFAIL
+2026-04-17T13:16:02Z ERROR ingress-controller: 502 Bad Gateway for /api/users/profile (upstream resolve failed)
+2026-04-17T13:16:18Z ERROR ingress-controller: 502 Bad Gateway for /api/orders (upstream resolve failed)
+2026-04-17T13:16:30Z CRITICAL alertmanager: alert=ClusterDNSDegraded severity=page state=firing affected_lookups=42%
+2026-04-17T13:18:42Z INFO oncall: Reverted coredns ConfigMap to previous revision via kubectl rollout undo
+2026-04-17T13:19:55Z INFO coredns-7d4b8c-x9k2p: Server started, listening on :53
+2026-04-17T13:21:08Z INFO users-svc: dial tcp: lookup auth-svc.auth.svc.cluster.local resolved successfully
