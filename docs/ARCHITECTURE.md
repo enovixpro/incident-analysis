@@ -4,6 +4,50 @@ Deep-dive on how the pieces fit. Cross-referenced to source so you can navigate.
 
 ---
 
+## 0. Topology at a glance
+
+Three classes of clients hit the same agent pipeline through different transports. The pipeline itself is a single LangGraph that talks to one LLM provider, one vector store, and three external integrations.
+
+```mermaid
+flowchart LR
+    subgraph clients["Clients"]
+        BROWSER["Browser<br/>(dashboard + chat)"]
+        MCP_CLIENT["MCP clients<br/>(Claude Desktop,<br/>claude CLI, Cursor)"]
+        PYTHON["Python API<br/>(tests, batch)"]
+    end
+
+    subgraph server["Server process"]
+        FASTAPI["FastAPI<br/>web/server.py"]
+        MCP_SERVER["MCP stdio server<br/>mcp_server.py"]
+        GRAPH[["LangGraph orchestrator<br/>src/graph.py"]]
+    end
+
+    subgraph external["External services"]
+        LLM["LLM provider<br/>Anthropic / OpenRouter"]
+        CHROMA[("ChromaDB<br/>.chroma/")]
+        SLACK["Slack"]
+        JIRA["JIRA Cloud"]
+        LANGSMITH["LangSmith<br/>(optional)"]
+    end
+
+    BROWSER -->|HTTP + SSE| FASTAPI
+    MCP_CLIENT -->|stdio JSON-RPC| MCP_SERVER
+    PYTHON -->|invoke| GRAPH
+
+    FASTAPI --> GRAPH
+    MCP_SERVER --> GRAPH
+
+    GRAPH -->|tool use| LLM
+    GRAPH -->|vector queries| CHROMA
+    GRAPH -->|REST| SLACK
+    GRAPH -->|REST v3 + ADF| JIRA
+    GRAPH -.->|traces| LANGSMITH
+```
+
+The dashboard (`web/`), MCP server (`mcp_server.py`), and Python API (`from src.graph import get_graph`) all run the **same** [src/graph.py](../src/graph.py) under the hood. Adding a new client transport doesn't touch any agent code.
+
+---
+
 ## 1. Shared state
 
 Everything is anchored on a single typed Pydantic model: `IncidentState` ([src/state.py](../src/state.py)).
@@ -27,15 +71,40 @@ Control-flow knobs on state:
 
 ### Topology
 
+```mermaid
+flowchart TD
+    START([raw_logs]) --> PARSE[parse<br/><i>heuristic, no LLM</i>]
+    PARSE --> CLASSIFY[classify<br/>🤖 tool-use]
+    CLASSIFY --> SEVERITY[score_severity<br/>🤖 tool-use]
+    SEVERITY --> RAG[rag<br/><i>Chroma lookup</i>]
+    RAG --> REMEDIATION[remediation<br/>🤖 tool-use + RAG context]
+    REMEDIATION --> CRITIC[critic<br/>🤖 tool-use<br/>+ extended thinking]
+
+    CRITIC -->|all approved| FANOUT{{fanout}}
+    CRITIC -->|any rejected<br/>retries < max| REMEDIATION
+
+    FANOUT --> SLACK[slack_notifier<br/><i>real or mock</i>]
+    FANOUT --> JIRA_GATE{severity<br/>≥ HIGH?}
+    FANOUT --> COOKBOOK[cookbook<br/>🤖 tool-use]
+
+    JIRA_GATE -->|yes| JIRA_CREATOR[jira_creator<br/><i>real or mock</i>]
+    JIRA_GATE -->|no| SKIP_JIRA[skip_jira<br/><i>no-op</i>]
+
+    SLACK --> AGGREGATE[aggregate]
+    JIRA_CREATOR --> AGGREGATE
+    SKIP_JIRA --> AGGREGATE
+    COOKBOOK --> AGGREGATE
+    AGGREGATE --> END([state.complete])
+
+    classDef llm        fill:#1f4e8c,stroke:#58a6ff,color:#fff
+    classDef gate       fill:#3d2914,stroke:#d29922,color:#fff
+    classDef integration fill:#1f3d2c,stroke:#3fb950,color:#fff
+    class CLASSIFY,SEVERITY,REMEDIATION,CRITIC,COOKBOOK llm
+    class FANOUT,JIRA_GATE gate
+    class SLACK,JIRA_CREATOR,SKIP_JIRA integration
 ```
-parse → classify → score_severity → rag → remediation → critic
-                                                          ├── (rejected) → remediation
-                                                          └── (approved) → fanout
-                                                                              ├── slack_notifier
-                                                                              ├── jira_creator OR skip_jira   (severity gate)
-                                                                              └── cookbook
-                                                                                  → aggregate → END
-```
+
+**Five LLM agents (blue)**, **two routing gates (amber)**, **three integration agents (green)**, and three deterministic nodes (parse, rag, aggregate).
 
 ### Conditional edges
 
@@ -160,6 +229,48 @@ The threshold is intentionally low because the BoW-hash embedder produces lower 
 
 ## 6. Streaming + dashboard
 
+### Sequence
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor U as User
+    participant B as Browser (app.js)
+    participant S as FastAPI<br/>(web/server.py)
+    participant Q as Queue&lt;run_id&gt;
+    participant W as Worker thread
+    participant G as LangGraph
+    participant L as LLM provider
+
+    U->>B: click "Run pipeline"
+    B->>S: POST /api/run {raw_logs, strict_critic}
+    S->>Q: create Queue
+    S->>W: spawn thread (run pump)
+    S-->>B: 200 {run_id}
+
+    B->>S: GET /api/stream/{run_id} (SSE)
+    activate S
+
+    W->>G: graph.stream(state)
+    loop per node completion
+        G->>L: messages.create(...)
+        L-->>G: tool_use response
+        G-->>W: yield {node, delta}
+        W->>Q: put SSE: node_completed
+        W->>Q: put SSE: usage (if LLM agent)
+        Q-->>S: drain
+        S-->>B: event: node_completed
+        Note over B: Mermaid node animates,<br/>tab content + cost meter update
+    end
+
+    W->>Q: put SSE: done
+    W->>Q: put None  (close sentinel)
+    Q-->>S: drain done
+    S-->>B: event: done
+    deactivate S
+    Note over B: status flips to "complete"
+```
+
 ### Backend
 
 [web/server.py](../web/server.py) is a FastAPI app. Three routes drive the dashboard:
@@ -245,6 +356,37 @@ Pricing table at [src/usage.py:18-34](../src/usage.py#L18-L34) covers Sonnet/Opu
 ---
 
 ## 8.5 Deployment
+
+```mermaid
+flowchart TB
+    SRC["src + web + Dockerfile<br/>(this repo)"]
+
+    subgraph local["Local development"]
+        DEV["make web<br/>uvicorn :8000<br/>.env, .chroma/ on disk"]
+    end
+
+    subgraph build["Container build"]
+        IMG[("Docker image<br/>python:3.12-slim<br/>uvicorn :7860<br/>Chroma pre-seeded")]
+    end
+
+    subgraph hosts["Container runtime hosts"]
+        HF["Hugging Face Spaces<br/>(Docker SDK · free CPU)"]
+        FLY["Fly.io / Railway / Render<br/>(paid)"]
+        OWN["Your own server<br/>(VPS, k8s, etc.)"]
+    end
+
+    SECRETS["Runtime secrets<br/>OPENROUTER_API_KEY · ANTHROPIC_API_KEY<br/>JIRA_* · SLACK_BOT_TOKEN · LANGSMITH_API_KEY"]
+
+    SRC --> DEV
+    SRC -->|docker build| IMG
+    IMG --> HF
+    IMG --> FLY
+    IMG --> OWN
+    SECRETS -.->|HF Settings UI| HF
+    SECRETS -.->|fly secrets / env| FLY
+    SECRETS -.->|docker run -e| OWN
+    SECRETS -.->|.env file| DEV
+```
 
 The repo is set up for two deployment shapes:
 
