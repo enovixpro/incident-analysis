@@ -210,6 +210,10 @@ body {
   font-size: 13px;
   animation: alert-slide-in .25s ease-out;
 }
+/* The HTML `hidden` attribute would normally `display: none`, but our
+   `display: flex` above wins — so the empty banner shows on page load.
+   Force-hide when the attribute is set. */
+.alert-banner[hidden] { display: none; }
 .alert-banner[data-level="billing"] {
   background: rgba(210, 153, 34, .15);
   border-bottom-color: rgba(210, 153, 34, .55);

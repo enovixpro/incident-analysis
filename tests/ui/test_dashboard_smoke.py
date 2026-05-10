@@ -39,3 +39,11 @@ def test_chat_fab_present_and_drawer_hidden(page_with_console):
     expect(drawer).not_to_have_class("chat-open")
     # And inert is set so it's non-interactive
     assert drawer.get_attribute("inert") is not None
+
+
+def test_alert_banner_hidden_on_initial_load(page_with_console):
+    """The LLM-error banner has `hidden` in markup. The CSS must respect that
+    on initial load — otherwise an empty banner with no text shows up.
+    Regression test for the `display: flex` overriding `hidden` attribute."""
+    page, _, _ = page_with_console
+    expect(page.locator("#alert-banner")).to_be_hidden()
