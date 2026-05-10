@@ -266,6 +266,12 @@ renderGraph().then(() => {
     applyTheme(next);
   });
   document.getElementById("alert-dismiss").addEventListener("click", hideAlert);
+  document.getElementById("alert-swap-key").addEventListener("click", () => {
+    const form = document.getElementById("alert-form");
+    form.hidden = false;
+    document.getElementById("alert-key-input").focus();
+  });
+  document.getElementById("alert-form").addEventListener("submit", onSwapKeySubmit);
   initChat();
   loadEnv();
   loadSamples();
@@ -925,6 +931,14 @@ function showAlert(alert) {
   } else {
     action.hidden = true;
   }
+  // Show the "Use different key" button for billing + auth alerts (where a fresh
+  // key would resolve the issue). Keep the form collapsed until clicked.
+  const swapBtn = document.getElementById("alert-swap-key");
+  swapBtn.hidden = !(alert.level === "billing" || alert.level === "auth");
+  document.getElementById("alert-form").hidden = true;
+  document.getElementById("alert-form-msg").textContent = "";
+  document.getElementById("alert-key-input").value = "";
+
   _alertEls.banner().hidden = false;
   _alertShown = true;
 }
@@ -932,6 +946,41 @@ function showAlert(alert) {
 function hideAlert() {
   _alertEls.banner().hidden = true;
   _alertShown = false;
+}
+
+async function onSwapKeySubmit(ev) {
+  ev.preventDefault();
+  const input = document.getElementById("alert-key-input");
+  const msg   = document.getElementById("alert-form-msg");
+  const key = input.value.trim();
+  if (!key) {
+    msg.textContent = "key required";
+    msg.className = "alert-form-msg alert-form-msg-err";
+    return;
+  }
+  msg.textContent = "applying…";
+  msg.className = "alert-form-msg";
+
+  try {
+    const r = await fetch("/api/llm-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider: "openrouter", key }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`HTTP ${r.status} — ${body.slice(0, 120)}`);
+    }
+    const out = await r.json();
+    msg.textContent = `✓ ${out.provider} · ${out.model} — try the run again`;
+    msg.className = "alert-form-msg alert-form-msg-ok";
+    input.value = "";
+    loadEnv();   // refresh topbar pill
+    setTimeout(hideAlert, 2500);
+  } catch (e) {
+    msg.textContent = `failed: ${e.message}`;
+    msg.className = "alert-form-msg alert-form-msg-err";
+  }
 }
 
 function onUsage(rec) {

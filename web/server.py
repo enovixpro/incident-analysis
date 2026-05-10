@@ -87,6 +87,35 @@ def env_status() -> dict:
     }
 
 
+class LLMKeyUpdate(BaseModel):
+    provider: str   # "openrouter" or "anthropic"
+    key: str
+
+
+@app.post("/api/llm-key")
+def update_llm_key(req: LLMKeyUpdate) -> dict:
+    """Hot-swap the active LLM provider key without restarting the server.
+    Single-user / demo feature — no auth, so don't expose to the public internet
+    without putting auth in front."""
+    key = req.key.strip()
+    if not key:
+        raise HTTPException(400, "key is required (non-empty)")
+    if req.provider == "openrouter":
+        os.environ["OPENROUTER_API_KEY"] = key
+    elif req.provider == "anthropic":
+        os.environ["ANTHROPIC_API_KEY"] = key
+        # Clear OpenRouter so the routing helper falls back to Anthropic direct.
+        os.environ["OPENROUTER_API_KEY"] = ""
+    else:
+        raise HTTPException(400, "provider must be 'openrouter' or 'anthropic'")
+
+    # Bust the cached llm.Anthropic() client so the next agent call picks up the
+    # new key. Subsequent runs will use it; an in-flight run keeps the old one.
+    llm.get_client.cache_clear()
+    logger.info("LLM key rotated to provider=%s", llm.provider_name())
+    return {"ok": True, "provider": llm.provider_name(), "model": llm.get_model()}
+
+
 @app.get("/api/samples")
 def list_samples() -> list[str]:
     if not SAMPLES_DIR.exists():

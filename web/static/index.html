@@ -46,7 +46,14 @@
     <div class="alert-content">
       <div class="alert-headline" id="alert-headline"></div>
       <div class="alert-detail" id="alert-detail"></div>
+      <form class="alert-form" id="alert-form" hidden>
+        <input class="alert-form-input" id="alert-key-input" type="password" autocomplete="off"
+               placeholder="Paste new OpenRouter key (sk-or-v1-…)">
+        <button class="alert-form-submit" id="alert-key-submit" type="submit">Apply</button>
+        <span class="alert-form-msg" id="alert-form-msg" aria-live="polite"></span>
+      </form>
     </div>
+    <button class="alert-action-secondary" id="alert-swap-key" type="button" hidden>Use different key</button>
     <a class="alert-action" id="alert-action" href="#" target="_blank" rel="noopener" hidden></a>
     <button class="alert-dismiss" id="alert-dismiss" type="button" aria-label="Dismiss">×</button>
   </div>
