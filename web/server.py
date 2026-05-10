@@ -35,8 +35,12 @@ from sse_starlette.sse import EventSourceResponse
 
 load_dotenv()
 
-# Silence misconfigured optional integrations so the console stays clean during demos.
-if not os.getenv("LANGSMITH_API_KEY"):
+# LangSmith tracing: ON whenever a key is present, OFF otherwise. Use direct
+# assignment (not setdefault) so a stray empty-string LANGSMITH_TRACING from a
+# Dockerfile ENV or .env doesn't silently disable tracing.
+if os.getenv("LANGSMITH_API_KEY"):
+    os.environ["LANGSMITH_TRACING"] = "true"
+else:
     os.environ.pop("LANGSMITH_TRACING", None)
 
 from src import llm, usage  # noqa: E402

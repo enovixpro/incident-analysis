@@ -55,6 +55,12 @@ These all wasted real time during build. If you're touching the related area, re
 - **Mermaid theme change requires re-render.** When toggling light/dark, snapshot node states first, re-init mermaid, re-render, then restore states. See `applyTheme()` in [web/static/app.js](web/static/app.js).
 - **Static files served by FastAPI's `StaticFiles` aren't cached server-side**, but browsers cache aggressively. Hard refresh (Cmd+Shift+R) after JS/CSS changes — restart not required.
 
+### LangSmith / Langchain tracing
+
+- **Never set `ENV LANGSMITH_TRACING=""` in the Dockerfile** (or anywhere else). The empty-string value is *set*, not *unset*, which makes `os.environ.setdefault("LANGSMITH_TRACING", "true")` a no-op. LangSmith then sees `""` and disables tracing silently — your `LANGSMITH_API_KEY` is never used, no traces appear, no error. Hard to debug.
+- **Manage `LANGSMITH_TRACING` only in [web/server.py](web/server.py) at startup**: assign directly (not setdefault) when `LANGSMITH_API_KEY` is present, pop otherwise. This survives stray empty values from `.env` or container ENV.
+- The `setdefault` in [src/graph.py:166-167](src/graph.py#L166-L167) is intentionally a fallback for non-web entrypoints (e.g. MCP server) — works because they pop `LANGSMITH_TRACING` first.
+
 ### UI tests (Playwright)
 
 - **Tests scrub LLM keys before launching the server** ([tests/ui/conftest.py](tests/ui/conftest.py)). Each agent's try/except fires and emits a fallback. Tests verify the *plumbing* (rendering, streaming, gate logic, results panels) not the *content* (which depends on the LLM).

@@ -37,8 +37,9 @@ COPY --chown=user:user . .
 # Idempotent — safe if you ever rebuild.
 RUN python -m src.tools.seed_vectorstore
 
-# Quiet LangSmith if no key is configured at runtime — keeps the logs readable.
-ENV LANGSMITH_TRACING=""
+# NOTE: don't ENV LANGSMITH_TRACING here. Setting it to anything (even "")
+# suppresses the runtime conditional in web/server.py that turns it on when
+# LANGSMITH_API_KEY is present. Leave it unset; web/server.py manages it.
 
 EXPOSE 7860
 CMD ["uvicorn", "web.server:app", "--host", "0.0.0.0", "--port", "7860"]
