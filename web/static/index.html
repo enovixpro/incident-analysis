@@ -39,6 +39,18 @@
     </div>
   </header>
 
+  <!-- Alert banner — surfaces credit-limit / auth / rate-limit errors from the LLM provider.
+       Hidden by default; shown by app.js when matching errors land in state.errors. -->
+  <div class="alert-banner" id="alert-banner" role="alert" hidden>
+    <div class="alert-icon" id="alert-icon">⚠️</div>
+    <div class="alert-content">
+      <div class="alert-headline" id="alert-headline"></div>
+      <div class="alert-detail" id="alert-detail"></div>
+    </div>
+    <a class="alert-action" id="alert-action" href="#" target="_blank" rel="noopener" hidden></a>
+    <button class="alert-dismiss" id="alert-dismiss" type="button" aria-label="Dismiss">×</button>
+  </div>
+
   <main class="grid">
 
     <!-- LEFT: log source / stream -->

@@ -47,3 +47,11 @@ def test_pipeline_runs_to_completion_via_fallback(page_with_console):
     page.locator(".tab[data-tab='trace']").click()
     trace_items = page.locator(".trace-item").all()
     assert len(trace_items) >= 8, f"expected >= 8 trace items, got {len(trace_items)}"
+
+    # No-API run → all 5 LLM agents fall back → alert banner should show with
+    # the auth-failure pattern (no LLM key configured).
+    banner = page.locator("#alert-banner")
+    expect(banner).to_be_visible()
+    headline = page.locator("#alert-headline").text_content()
+    assert "API key" in headline or "credit" in headline or "LLM" in headline, \
+        f"banner headline should mention the LLM problem; got: {headline}"

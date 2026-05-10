@@ -18,3 +18,8 @@ htmlcov/
 # Playwright browser-test artefacts
 test-results/
 playwright-report/
+
+# Session-local — handover note + tail-mode demo assets, not for the public repo
+HANDOVER.md
+data/sample_logs/tail_demo.log
+docs/TAIL_DEMO.md

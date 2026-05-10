@@ -265,6 +265,7 @@ renderGraph().then(() => {
     localStorage.setItem(THEME_KEY, next);
     applyTheme(next);
   });
+  document.getElementById("alert-dismiss").addEventListener("click", hideAlert);
   initChat();
   loadEnv();
   loadSamples();
@@ -755,6 +756,7 @@ function resetUI() {
   }
   resultsMeta.textContent = "running…";
   renderCostMeter();
+  hideAlert();
 }
 
 // ----- SSE handlers ---------------------------------------------------------------
@@ -775,6 +777,10 @@ function onNodeCompleted({ node, delta }) {
   // Merge first so the gate-prediction logic below sees the latest state
   // (in particular, severities written by score_severity).
   mergeDelta(delta);
+
+  // Surface critical LLM-provider errors as a top banner the moment they happen,
+  // so the user knows immediately why agents are falling back to placeholders.
+  maybeShowLLMAlert();
 
   // Pre-light successors so they appear active until their own completion.
   // For conditional edges we predict which branch will fire so we don't leave
@@ -821,6 +827,111 @@ function onError(e) {
   console.error("SSE error", e);
   if (activeRun) activeRun.close();
   activeRun = null;
+}
+
+// ----- Alert banner (LLM provider errors) -----------------------------------------
+// Pattern-matches the strings currently in aggregate.errors against known classes.
+// Show as soon as a known issue is detected; auto-clears on next run start (resetUI).
+
+const _alertEls = {
+  banner:  () => document.getElementById("alert-banner"),
+  icon:    () => document.getElementById("alert-icon"),
+  headline:() => document.getElementById("alert-headline"),
+  detail:  () => document.getElementById("alert-detail"),
+  action:  () => document.getElementById("alert-action"),
+};
+let _alertShown = false;   // once shown for a run, don't re-show every tick
+
+function detectLLMAlert(errors) {
+  if (!errors || !errors.length) return null;
+  const text = errors.join(" \n ");
+  const lower = text.toLowerCase();
+
+  // 1. OpenRouter / Anthropic credit or spending limit reached
+  if (/key limit exceeded|insufficient.*credit|insufficient.*balance|quota.*exceeded|billing/.test(lower)) {
+    const isOpenRouter = /openrouter/.test(lower);
+    return {
+      level: "billing",
+      icon: "💳",
+      headline: isOpenRouter
+        ? "OpenRouter key has hit its credit limit"
+        : "LLM provider credit limit reached",
+      detail: "All affected agents fell back to placeholders. Top up your account to continue.",
+      actionUrl: isOpenRouter
+        ? "https://openrouter.ai/settings/keys"
+        : "https://console.anthropic.com/settings/billing",
+      actionText: isOpenRouter ? "Manage credits ↗" : "Anthropic billing ↗",
+    };
+  }
+
+  // 2. Auth failure (invalid / missing key)
+  if (/401|unauthorized|invalid.*api.*key|authentication.*method|x-api-key/i.test(text)) {
+    return {
+      level: "auth",
+      icon: "🔒",
+      headline: "LLM provider rejected the API key",
+      detail: "Authentication failed. Check that ANTHROPIC_API_KEY or OPENROUTER_API_KEY is set correctly.",
+      actionUrl: null,
+    };
+  }
+
+  // 3. Rate limit
+  if (/429|rate.?limit|too many requests/i.test(text)) {
+    return {
+      level: "rate-limit",
+      icon: "🐢",
+      headline: "Rate limited by LLM provider",
+      detail: "Slow down requests or upgrade your plan to increase the per-minute cap.",
+      actionUrl: null,
+    };
+  }
+
+  // 4. Generic — multiple LLM agent failures of unknown cause
+  const llmAgentErrors = errors.filter((e) =>
+    /^(classifier|severity|remediation|critic|cookbook):/i.test(e)
+  );
+  if (llmAgentErrors.length >= 2) {
+    const first = llmAgentErrors[0].length > 220
+      ? llmAgentErrors[0].slice(0, 220) + "…"
+      : llmAgentErrors[0];
+    return {
+      level: "generic",
+      icon: "⚠️",
+      headline: `${llmAgentErrors.length} LLM agents failed`,
+      detail: first,
+      actionUrl: null,
+    };
+  }
+
+  return null;
+}
+
+function maybeShowLLMAlert() {
+  if (_alertShown) return;
+  const alert = detectLLMAlert(aggregate.errors);
+  if (alert) showAlert(alert);
+}
+
+function showAlert(alert) {
+  _alertEls.banner().dataset.level    = alert.level;
+  _alertEls.icon().textContent        = alert.icon || "⚠️";
+  _alertEls.headline().textContent    = alert.headline;
+  _alertEls.detail().textContent      = alert.detail;
+  const action = _alertEls.action();
+  if (alert.actionUrl) {
+    action.href = alert.actionUrl;
+    action.textContent = alert.actionText || "Open ↗";
+    action.hidden = false;
+  } else {
+    action.hidden = true;
+  }
+  _alertEls.banner().hidden = false;
+  _alertShown = true;
+}
+
+function hideAlert() {
+  _alertEls.banner().hidden = true;
+  _alertShown = false;
 }
 
 function onUsage(rec) {
