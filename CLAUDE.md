@@ -52,6 +52,7 @@ These all wasted real time during build. If you're touching the related area, re
 
 - **Mermaid 11 node IDs are `<svg-id>-flowchart-<name>-<n>`**, not `flowchart-<name>-<n>`. Match with substring regex `/flowchart-([A-Za-z_]+)-\d+$/`, not `^`-anchored. See [web/static/app.js](web/static/app.js) `renderGraph()`.
 - **Conditional graph branches must mirror server-side gate logic on the client** or unused branches stay pulsing forever. The two gates are `route_after_critic` and `should_create_ticket`. See `onNodeCompleted` in [web/static/app.js](web/static/app.js).
+- **`route_after_critic` checks both `any_rejected` AND `critic_retries < max_critic_retries`** — the client must mirror BOTH conditions, not just the rejection check. If the second critic still has rejections but the retry budget is exhausted, the graph routes to fanout — the client must not pre-light remediation again. We detect "loop already fired" from `aggregate.remediation_history` (any incident with > 1 revision = loop has fired). Symptom of getting this wrong: remediation node stays blue (active) while everything downstream turns green.
 - **Mermaid theme change requires re-render.** When toggling light/dark, snapshot node states first, re-init mermaid, re-render, then restore states. See `applyTheme()` in [web/static/app.js](web/static/app.js).
 - **Static files served by FastAPI's `StaticFiles` aren't cached server-side**, but browsers cache aggressively. Hard refresh (Cmd+Shift+R) after JS/CSS changes — restart not required.
 

@@ -687,11 +687,21 @@ function onNodeCompleted({ node, delta }) {
   );
   const anyRejected = (aggregate.critique || []).some((c) => !c.approved);
 
+  // The retry budget mirrors src/graph.py route_after_critic: the loop only
+  // fires if (a) any rejection AND (b) we haven't already used our one retry.
+  // Detect "already retried" from remediation_history — any incident with >1
+  // revision means remediation has already re-run once. Without this check,
+  // the loop edge gets pre-lit on the second critic too and remediation
+  // stays stuck pulsing while the rest of the graph turns green.
+  const loopAlreadyFired = Object.values(aggregate.remediation_history || {})
+    .some((list) => list.length > 1);
+  const willLoop = anyRejected && !loopAlreadyFired;
+
   for (const next of TOPOLOGY[node] || []) {
-    // critic → remediation: only on rejection.
-    if (node === "critic" && next === "remediation" && !anyRejected) continue;
-    // critic → fanout: only on approval.
-    if (node === "critic" && next === "fanout" && anyRejected) continue;
+    // critic → remediation: only when the loop will actually fire.
+    if (node === "critic" && next === "remediation" && !willLoop) continue;
+    // critic → fanout: skip only when the loop will fire (graph routes to remediation).
+    if (node === "critic" && next === "fanout" && willLoop) continue;
     // fanout → jira_creator vs skip_jira: severity gate.
     if (node === "fanout" && next === "jira_creator" && !hasHighSev) continue;
     if (node === "fanout" && next === "skip_jira"   && hasHighSev) continue;
