@@ -43,7 +43,13 @@ If any of `JIRA_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` is unset, JIRA runs in mo
 |---|---|
 | `LANGSMITH_API_KEY` | If set, LangGraph emits traces to LangSmith automatically |
 | `LANGSMITH_PROJECT` | Defaults to `incident-suite` |
-| `LANGSMITH_TRACING` | Set to `true` to enable. Auto-popped if no key is set, to keep the console clean. |
+| `LANGSMITH_TRACING` | Don't set this manually. [web/server.py](../web/server.py) forces it to `true` whenever `LANGSMITH_API_KEY` is present, and clears it otherwise — to avoid the empty-string trap (see [Troubleshooting](#langsmith-isnt-recording-traces)) |
+
+### RAG behavior
+
+| Variable | Notes |
+|---|---|
+| `RAG_SURFACE_THRESHOLD` | Min similarity (0-1) for a past incident to be surfaced verbatim in JIRA / Slack / dashboard. Default `0.4`. The custom BoW-hash embedder produces lower scores than transformer embeddings; tune downward if you want more matches surfaced. |
 
 ---
 
@@ -55,7 +61,9 @@ If any of `JIRA_URL` / `JIRA_EMAIL` / `JIRA_API_TOKEN` is unset, JIRA runs in mo
 make web                  # uvicorn on http://localhost:8000
 ```
 
-Pick a sample log from the dropdown (or upload your own), optionally check **Strict critic** to force the loop, hit **Run pipeline** or **Tail mode**. The graph animates per-node; results stream into the right-hand tabs.
+Pick a sample log from the dropdown (or upload your own), optionally check **Strict critic** to force the loop, hit **Run pipeline** or **Tail mode**. The graph animates per-node; results stream into the right-hand tabs. The **Ask** floating button (bottom-right) opens a chat drawer with full context of the current run.
+
+**Tail mode** works for both samples (server reads from `data/sample_logs/`) and uploaded files (client ships content in the request body). The button enables on any loaded log.
 
 ### 2. MCP server
 
@@ -98,6 +106,63 @@ print(final.cookbook)
 ```
 
 This is what [tests/test_graph_smoke.py](../tests/test_graph_smoke.py) does.
+
+---
+
+## Docker / Hugging Face Spaces
+
+The repo ships with a Dockerfile that builds a self-contained image suitable for any Docker host (Hugging Face Spaces, Fly.io, Railway, your own server).
+
+### Run locally with Docker
+
+```bash
+docker build -t incident-suite .
+docker run --rm -p 7860:7860 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  -e SLACK_BOT_TOKEN=xoxb-... \
+  -e JIRA_URL=https://you.atlassian.net -e JIRA_EMAIL=you@example.com \
+  -e JIRA_API_TOKEN=ATATT... -e JIRA_PROJECT_KEY=KAN \
+  incident-suite
+```
+
+Open http://localhost:7860. Same dashboard as `make web`, just on the HF-default port.
+
+What the Dockerfile does:
+- `python:3.12-slim` base
+- Runs as non-root user `1000` (HF Spaces convention)
+- Pre-seeds Chroma at build time so first request doesn't pay the seed cost
+- Listens on port 7860
+
+What it does NOT do (intentionally):
+- Bake `.env` into the image — secrets must be passed as `-e` env vars or via your host's secrets system
+- Set `LANGSMITH_TRACING` — managed at runtime by `web/server.py` based on whether the key is present (see [Troubleshooting](#langsmith-isnt-recording-traces))
+
+### Deploy to Hugging Face Spaces (free CPU tier)
+
+The repo's [README.md](../README.md) starts with YAML frontmatter that HF Spaces uses to configure the Space (SDK = Docker, port 7860, etc.). Deploy steps:
+
+1. **Create the Space** at https://huggingface.co/new-space
+   - SDK: **Docker** (blank template), CPU basic (free), Public
+   - Name it whatever you want
+2. **Add secrets** — in the Space's **Settings** → **Variables and secrets**, add the same env vars you'd use locally: `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`, plus optional `JIRA_*` / `SLACK_BOT_TOKEN` / `LANGSMITH_API_KEY`. **Don't** add `LANGSMITH_TRACING` — let the app manage it.
+3. **Add the Space as a git remote and push**:
+   ```bash
+   git remote add hf https://huggingface.co/spaces/<your-username>/<space-name>
+   git push hf main
+   ```
+   You'll need an HF token (https://huggingface.co/settings/tokens — fine-grained, write access to just this Space). Use it as the password.
+4. **Watch the build** — the Space's **Logs** tab shows pip install + Chroma seeding (~3-5 min on the first build).
+5. When you see `Application startup complete`, the dashboard is live at `https://huggingface.co/spaces/<you>/<space-name>`. First request after a long idle is a 30-60s cold start; subsequent are fast.
+
+### To inspect HF build / run logs from the CLI
+
+```bash
+export HF_TOKEN=hf_...
+curl -sN -H "Authorization: Bearer $HF_TOKEN" \
+  "https://huggingface.co/api/spaces/<you>/<space>/logs/build"
+curl -sN -H "Authorization: Bearer $HF_TOKEN" \
+  "https://huggingface.co/api/spaces/<you>/<space>/logs/run"
+```
 
 ---
 
@@ -157,7 +222,17 @@ Symptom: console flooded with `LangSmithAuthError: 401 Unauthorized`.
 
 Cause: `LANGSMITH_TRACING=true` is set in `.env` but `LANGSMITH_API_KEY` is empty or wrong.
 
-Fix: either set a real key, or comment out `LANGSMITH_TRACING=true`. The web server auto-pops `LANGSMITH_TRACING` when no key is set, but the legacy Streamlit / direct invocations don't, so set them up consistently.
+Fix: either set a real key, or remove `LANGSMITH_TRACING` from your `.env` entirely. [web/server.py](../web/server.py) now forces `LANGSMITH_TRACING=true` only when a key is present and clears it otherwise — so `.env` shouldn't set it explicitly.
+
+### LangSmith isn't recording traces
+
+Symptom: `LANGSMITH_API_KEY` is correctly set but no runs appear in the LangSmith project. No 401 errors either — silent.
+
+Cause: something earlier in the env chain set `LANGSMITH_TRACING` to an empty string. The LangSmith client checks `LANGSMITH_TRACING == "true"` and disables when it sees `""`. `os.environ.setdefault` won't override an empty string.
+
+Fix: don't set `LANGSMITH_TRACING` anywhere in `.env`, Dockerfile (`ENV LANGSMITH_TRACING=...`), or HF Spaces secrets. Let [web/server.py](../web/server.py) manage it. If you've inherited a deploy that sets it, remove the offending line and rebuild.
+
+This was a real bug in our own Dockerfile until we fixed it — see [CLAUDE.md](../CLAUDE.md#langsmith--langchain-tracing) for the gotcha.
 
 ### `skip JIRA` and `JIRA` both highlighted in the graph
 
@@ -176,6 +251,20 @@ If `seed` fails, it's usually a Python version mismatch (chromadb wants 3.11+). 
 ```bash
 ls -la data/sample_logs/ data/seed_incidents.jsonl
 ```
+
+### UI tests (Playwright) fail on first run
+
+```bash
+make test-ui
+```
+
+If you see "Executable doesn't exist" or similar, the Chromium binary hasn't been downloaded:
+
+```bash
+.venv/bin/playwright install chromium
+```
+
+If tests fail with port-in-use errors, you have another uvicorn instance on the test's chosen port. The fixture picks a random free port at session start; rare but can happen if you're running multiple test runners in parallel.
 
 ### Mermaid graph doesn't render or animate
 

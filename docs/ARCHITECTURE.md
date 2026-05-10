@@ -127,7 +127,7 @@ anthropic.Anthropic(
 
 ### Corpus
 
-[data/seed_incidents.jsonl](../data/seed_incidents.jsonl) — 8 hand-curated past incidents (id, title, summary, remediation, category). Indexed via `make seed`.
+[data/seed_incidents.jsonl](../data/seed_incidents.jsonl) — **30 hand-curated past incidents** (id, title, summary, remediation, category) covering CrashLoopBackOff, OOM, DB pool, TLS, latency, disk, auth, deploy, Kafka lag, Redis evictions, DNS, mTLS, rate-limit cascades, Postgres replication, Helm rollouts, memory leaks, GC pauses, CDN failures, autoscaler caps, etcd elections, sidecar OOMs, webhook timeouts, lock contention, OAuth races, NetworkPolicies, ECR rotation, disk pressure, Lambda cold starts, RDS storage. Indexed via `make seed`.
 
 ### Storage
 
@@ -145,6 +145,16 @@ To swap in real embeddings: replace `_embedder` at [vectorstore.py:101](../src/t
 ### Retrieval
 
 [rag_retriever.py](../src/agents/rag_retriever.py) is a graph node, not an agent. For each incident, query is `title + "\n" + summary`, top-3 matches with similarity scores stored in `state.rag_matches`. Each match carries `past_id` so the remediation agent can cite it (e.g. `references=["PAST-003"]`).
+
+### Surfacing — making strong matches visible to humans
+
+Beyond the model-internal grounding, strong matches (similarity ≥ `RAG_SURFACE_THRESHOLD`, default `0.4`) are surfaced verbatim to outputs:
+
+- **JIRA description** — adds a `## Reference: similar past incident(s)` section with the matched id, title, and verbatim past remediation
+- **Slack message** — single-line footer like `_Reference: similar to PAST-003 (sim 0.45) — see ticket for prior fix_`
+- **Dashboard Incidents tab** — per-incident "Reference: prior fix that worked" block
+
+The threshold is intentionally low because the BoW-hash embedder produces lower similarity scores (~0.3-0.5 even for near-perfect matches) than transformer embeddings would (~0.7-0.9). Helper: `select_strong_matches()` in [src/state.py](../src/state.py).
 
 ---
 
@@ -184,6 +194,20 @@ Light/dark theme: CSS variables driven by `[data-theme="..."]` on `<html>`. Choi
 
 ---
 
+## 6.5 Chat assistant
+
+The dashboard ships with an embedded chat drawer ([web/static/index.html](../web/static/index.html), [app.js](../web/static/app.js)) backed by `POST /api/chat`. The assistant sees the same run state the dashboard does — incidents, remediations, critique with thinking, RAG matches, JIRA tickets, cookbook, trace, usage — passed as context with every turn.
+
+**Why the chat is POST-with-streaming, not SSE-via-EventSource**: `EventSource` only supports GET. Chat uses `fetch()` against `POST /api/chat` and parses the SSE-format response body manually (`parseSseFrame` in app.js). The frame format is identical to the pipeline streaming so the parser code is reusable.
+
+**Stateless server, client owns history**: each turn's request includes the full message history (capped at last 10 to bound prompt size) plus a snapshot of `aggregate` state. There's no session storage on the server. Reload = fresh conversation.
+
+**Cost flows through the same accumulator**: `usage.record("assistant", model, resp.usage)` after each chat turn — appears in the topbar cost meter alongside pipeline agents.
+
+System prompt: [src/prompts/assistant.md](../src/prompts/assistant.md). It enforces "only reason from `<run_state>` — do not invent" with explicit citation guidance (use real ids like `INC-001`, `PAST-003`, `KAN-8`). If you change the snapshot shape in `snapshotStateForChat()`, update the "What you can see" section of the prompt in lockstep.
+
+---
+
 ## 7. MCP server
 
 [mcp_server.py](../mcp_server.py) is a self-contained FastMCP stdio server that exposes the same agent pipeline to any MCP client (Claude Desktop, `claude` CLI, Cursor, …).
@@ -217,6 +241,22 @@ Every agent wraps its system prompt in `cache_control: {"type": "ephemeral"}`. A
 Why a global lock instead of `threading.local`: LangGraph's parallel fan-out dispatches nodes across worker threads, so a thread-local accumulator initialized in the pump thread wouldn't see records appended by the cookbook (which runs in a parallel branch alongside Slack/JIRA).
 
 Pricing table at [src/usage.py:18-34](../src/usage.py#L18-L34) covers Sonnet/Opus/Haiku 4.x both with their direct ids (`claude-sonnet-4-5`) and OpenRouter aliases (`anthropic/claude-sonnet-4.5`). For exact OpenRouter billing, query their `/models` endpoint at runtime — current rates are best-effort.
+
+---
+
+## 8.5 Deployment
+
+The repo is set up for two deployment shapes:
+
+**Local development** — `make web` runs uvicorn on port 8000 with hot reload. Best for iteration.
+
+**Container deployment** ([Dockerfile](../Dockerfile)) — `python:3.12-slim` base, runs as non-root user 1000 (HF Spaces convention), pre-seeds Chroma at build time so cold starts skip the seed cost, listens on port 7860. Suitable for any Docker host.
+
+The repo's [README.md](../README.md) starts with HF Spaces YAML frontmatter that turns the same repo into a deployable Hugging Face Space (Docker SDK). The free CPU tier (16GB RAM) handles the deps without trouble. Sleeps after ~48h of inactivity; first request wakes the container in 30-60s.
+
+What the Dockerfile deliberately doesn't do: bake `.env` (secrets pass at runtime), set `LANGSMITH_TRACING` (managed by [web/server.py](../web/server.py) based on key presence — see [CLAUDE.md](../CLAUDE.md#langsmith--langchain-tracing) for why).
+
+See [docs/OPERATING.md](OPERATING.md#docker--hugging-face-spaces) for the full deploy guide.
 
 ---
 
@@ -258,3 +298,7 @@ Set `ANTHROPIC_MODEL` (Anthropic direct) or `OPENROUTER_MODEL` (OpenRouter). For
 ### Tighten or relax the critic
 
 Edit [src/prompts/critic.md](../src/prompts/critic.md) (default) or [src/prompts/critic_strict.md](../src/prompts/critic_strict.md) (strict mode). The "hard reject if any of these conditions apply" pattern is what makes the rubric model-friendly — keep that shape if you want predictable behavior.
+
+### Tune RAG match surfacing
+
+`RAG_SURFACE_THRESHOLD` env var (default `0.4`) controls when matches surface to JIRA / Slack / dashboard. Lower → more matches surface, higher → fewer. The threshold is calibrated to the BoW-hash embedder; recalibrate if you swap embedders.

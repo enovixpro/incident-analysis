@@ -14,8 +14,10 @@ short_description: Multi-agent LangGraph + Claude pipeline for ops triage
 
 An AI-powered incident response pipeline that ingests raw operational logs, classifies failures, retrieves similar past incidents from a vector store, recommends remediation, runs that remediation through a self-critique safety check, and dispatches actionable artifacts to Slack and JIRA — coordinated by a **LangGraph** orchestrator running specialist Claude agents in series and in parallel.
 
+**Live demo**: https://huggingface.co/spaces/enovixpro/incident-analysis (cold start ~30-60s after idle).
+
 Three ways to use it:
-- **Live dashboard** — FastAPI + SSE backend, animated DAG, three-panel layout, log-tail mode
+- **Live dashboard** — FastAPI + SSE backend, animated DAG, three-panel layout, log-tail mode (uploads or seeded samples), embedded chat assistant
 - **MCP server** — same pipeline exposed as tools to any MCP client (Claude Desktop, `claude` CLI, Cursor)
 - **Python API** — invoke the graph directly for tests or batch jobs
 
@@ -31,10 +33,11 @@ Three ways to use it:
 6. **Remediation agent** generates root-cause analysis and ordered fix steps, grounded on the RAG matches
 7. **Critic agent** reviews the remediation with extended thinking; can reject and route the graph back to remediation for a revision
 8. In parallel, three downstream agents fan out:
-   - **Slack notifier** posts a formatted incident summary
-   - **JIRA agent** creates a real ticket — but **only** for `HIGH` / `CRITICAL` incidents (severity gate as a guardrail)
+   - **Slack notifier** posts a formatted incident summary (with a footer citing the strongest matched past incident, if any)
+   - **JIRA agent** creates a real ticket — but **only** for `HIGH` / `CRITICAL` incidents (severity gate as a guardrail). Ticket includes a "Reference: similar past incident(s)" section with the prior remediation that worked.
    - **Cookbook synthesizer** distills the run into a reusable runbook entry
 9. Dashboard streams every step live with an animated graph, hover tooltips, and a per-run cost meter
+10. Embedded **chat assistant** sees the same run state — ask "summarize this run", "why this severity", "explain the critic's reasoning"
 
 ---
 
@@ -91,6 +94,9 @@ Each is referenced in the code with a `# CONCEPT:` comment so it's traceable.
 | 17 | **Prompt caching** (`cache_control`) on every system prompt + per-run cost tracking | [src/usage.py](src/usage.py) |
 | 18 | **MCP server** — same agent pipeline exposed to Claude Desktop / `claude` CLI | [mcp_server.py](mcp_server.py) |
 | 19 | **Provider-agnostic LLM routing** — Anthropic direct OR OpenRouter via env switch | [src/llm.py](src/llm.py) |
+| 20 | **Run-aware chat assistant** in the dashboard — streams Claude responses with the live run state as context | [src/prompts/assistant.md](src/prompts/assistant.md), [web/static/app.js](web/static/app.js) |
+| 21 | **RAG surfacing** — strong past-incident matches are surfaced verbatim in JIRA / Slack / dashboard, threshold-gated | [src/state.py](src/state.py) (`select_strong_matches`) |
+| 22 | **Playwright UI tests** — 16 browser tests verifying dashboard, graph rendering, chat, theme, tail-mode, and end-to-end run via fallback paths | [tests/ui/](tests/ui/) |
 
 ---
 
@@ -104,14 +110,14 @@ Each is referenced in the code with a `# CONCEPT:` comment so it's traceable.
 ### Install + seed
 
 ```bash
-git clone <this-repo>
-cd incident-suite
+git clone https://github.com/enovixpro/incident-analysis.git
+cd incident-analysis
 python -m venv .venv && source .venv/bin/activate
 make install
 cp .env.example .env
 # edit .env — at minimum set ANTHROPIC_API_KEY or OPENROUTER_API_KEY
 make seed                 # loads sample past incidents into ChromaDB
-make test                 # 6 tests should pass
+make test                 # unit + graph smoke (no API keys required)
 ```
 
 ### Run the live dashboard
@@ -124,9 +130,10 @@ What you get:
 - **Three-panel layout**: log source · animated DAG · results (Incidents / Slack / JIRA / Cookbook / Trace)
 - **Live streaming**: every node lights up blue (running) → green (done) as it executes
 - **Hover tooltips** on each pipeline node — what it does, current state, results so far, per-agent cost
-- **Strict critic toggle** — biases the critic toward rejection so the loop-back edge actually fires; UI then renders a side-by-side diff between the two remediation revisions
-- **Tail mode** — streams the sample log line-by-line first, then the pipeline runs, simulating `kubectl logs -f`
-- **Cost meter** in the topbar shows per-run input/output/cache tokens and USD cost
+- **Strict critic toggle** — biases the critic toward rejection so the loop-back edge actually fires; UI then renders a side-by-side diff between the two remediation revisions, with the critic's extended-thinking reasoning available
+- **Tail mode** — streams the log line-by-line first, then the pipeline runs (works for both samples and uploads)
+- **Cost meter** in the topbar shows per-run input/output/cache tokens and USD cost (including chat)
+- **Chat assistant** drawer (FAB bottom-right) — context-aware Q&A about the current run
 - **Light/dark mode** toggle (auto-detects system preference)
 
 ### Run as MCP server
@@ -145,6 +152,17 @@ make run                  # the original Streamlit UI on :8501
 
 Kept around for reference but the FastAPI dashboard is the recommended path.
 
+### Run as a Docker container
+
+```bash
+docker build -t incident-suite .
+docker run --rm -p 7860:7860 \
+  -e ANTHROPIC_API_KEY=sk-ant-... \
+  incident-suite
+```
+
+The Dockerfile pre-seeds Chroma at build time, runs as user `1000`, and listens on port 7860 (Hugging Face Spaces convention). See [docs/OPERATING.md](docs/OPERATING.md#docker--hugging-face-spaces) for the full deploy guide.
+
 ---
 
 ## Mock mode (graders / CI)
@@ -159,30 +177,33 @@ So the project runs end-to-end with *only* `ANTHROPIC_API_KEY` (or `OPENROUTER_A
 
 ```
 incident-suite/
-├── README.md                       # this file
+├── README.md                       # this file (also the HF Spaces card via YAML frontmatter)
+├── CLAUDE.md                       # guidance for Claude / future contributors
 ├── docs/
-│   ├── ARCHITECTURE.md             # internals — graph, state, agents, streaming, MCP
-│   └── OPERATING.md                # env vars, providers, JIRA setup, troubleshooting
+│   ├── ARCHITECTURE.md             # internals — graph, state, agents, streaming, MCP, chat
+│   └── OPERATING.md                # env vars, providers, JIRA setup, Docker, HF deploy, troubleshooting
+├── Dockerfile                      # python:3.12-slim, pre-seeds Chroma, port 7860
+├── .dockerignore
 ├── requirements.txt
-├── Makefile                        # install / seed / web / mcp / run / test / clean
+├── Makefile                        # install / seed / web / mcp / run / test / test-ui / clean
 ├── .env.example
 │
 ├── app.py                          # legacy Streamlit UI entry point
 ├── mcp_server.py                   # MCP stdio server — exposes the pipeline as tools
 │
 ├── src/
-│   ├── state.py                    # IncidentState — typed Pydantic anchor
+│   ├── state.py                    # IncidentState — typed Pydantic anchor + RAG surfacing helper
 │   ├── graph.py                    # LangGraph wiring + conditional routing + fan-out
 │   ├── llm.py                      # provider routing — Anthropic direct vs OpenRouter
-│   ├── usage.py                    # per-run token + cost accumulator
+│   ├── usage.py                    # per-run token + cost accumulator (incl. chat)
 │   ├── agents/
 │   │   ├── classifier.py           # raw events → discrete incidents (tool-use)
 │   │   ├── severity.py             # scores each incident (tool-use)
 │   │   ├── rag_retriever.py        # vector lookup, real (no LLM)
 │   │   ├── remediation.py          # RAG-grounded fix plan; handles critic retry
 │   │   ├── critic.py               # extended-thinking safety review
-│   │   ├── slack_notifier.py
-│   │   ├── jira_creator.py         # severity-gated; live or mock
+│   │   ├── slack_notifier.py       # surfaces strongest past-incident match in footer
+│   │   ├── jira_creator.py         # severity-gated; "Reference: similar past incident" section
 │   │   └── cookbook.py             # generalized runbook synthesis
 │   ├── tools/
 │   │   ├── vectorstore.py          # Chroma wrapper + custom hash-BoW embedder
@@ -195,24 +216,25 @@ incident-suite/
 │       ├── classifier.md
 │       ├── severity.md
 │       ├── remediation.md
-│       ├── critic.md
-│       ├── critic_strict.md
-│       └── cookbook.md
+│       ├── critic.md / critic_strict.md
+│       ├── cookbook.md
+│       └── assistant.md            # dashboard chat assistant
 │
 ├── web/                            # FastAPI dashboard
-│   ├── server.py                   # SSE backend, run management
-│   └── static/                     # HTML / CSS / vanilla JS frontend
+│   ├── server.py                   # SSE backend, run management, /api/chat streaming
+│   └── static/                     # HTML / CSS / vanilla JS frontend (no build step)
 │       ├── index.html
-│       ├── app.js                  # Mermaid render + animation + tooltips + cost
+│       ├── app.js                  # Mermaid render + animation + tooltips + cost + chat drawer
 │       └── style.css               # light + dark themes
 │
 ├── data/
-│   ├── seed_incidents.jsonl        # past incidents for the RAG corpus
-│   └── sample_logs/                # demo logs (api_5xx_burst.log, k8s_pod_crash.log)
+│   ├── seed_incidents.jsonl        # 30 past incidents for the RAG corpus
+│   └── sample_logs/                # 6 demo logs covering DB pool, crash loop, OOM, mTLS, multi-incident, latency
 │
 └── tests/
-    ├── test_parser.py
-    └── test_graph_smoke.py         # end-to-end smoke test on the full graph
+    ├── test_parser.py              # parser unit tests (fast)
+    ├── test_graph_smoke.py         # end-to-end graph smoke (fast, no API keys)
+    └── ui/                         # 16 Playwright tests — make test-ui
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how each piece fits together.
@@ -222,10 +244,11 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how each piece fits togethe
 ## Testing
 
 ```bash
-make test
+make test       # unit + graph smoke (1.8s, no API keys, no browser)
+make test-ui    # Playwright UI suite (~20s, headless Chromium, no API keys)
 ```
 
-Runs the parser unit tests and a smoke test that pushes a sample log through the full graph in mock mode (no external calls). Designed to pass even without an LLM key — the agents' fallback paths kick in.
+The unit suite verifies the parser and pushes a sample log through the full graph in mock mode. The UI suite spins up a fresh uvicorn on a random port and exercises the dashboard: page load, Mermaid graph indexing, sample selection, file upload, tab switching, theme toggle, chat drawer, and a full pipeline run via fallback paths. Both suites pass without any LLM key set — the agents' fallback paths kick in.
 
 ---
 

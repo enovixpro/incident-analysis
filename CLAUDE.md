@@ -55,6 +55,15 @@ These all wasted real time during build. If you're touching the related area, re
 - **Mermaid theme change requires re-render.** When toggling light/dark, snapshot node states first, re-init mermaid, re-render, then restore states. See `applyTheme()` in [web/static/app.js](web/static/app.js).
 - **Static files served by FastAPI's `StaticFiles` aren't cached server-side**, but browsers cache aggressively. Hard refresh (Cmd+Shift+R) after JS/CSS changes — restart not required.
 
+### Deployment
+
+- **Live demo runs on Hugging Face Spaces (Docker SDK)**: https://huggingface.co/spaces/enovixpro/incident-analysis. Free CPU tier, sleeps after ~48h idle, ~30-60s cold start.
+- **Two git remotes**: `origin` → GitHub, `hf` → HF Space. They are independent; pushing to one does not push to the other. Push to both: `git push origin main && git push hf main`.
+- **README.md frontmatter is HF-specific** (sdk, app_port, short_description). The `short_description` field has a **60-char limit** — HF rejects pushes that violate it.
+- **Don't bake `.env` into the Dockerfile**. Secrets pass at runtime via `docker run -e ...` or HF Spaces secrets UI. `.env` and `.chroma/` are in `.dockerignore`.
+- **Port is 7860 in the container** (HF convention), not 8000. `make web` is still 8000 for local dev.
+- **Pre-seed Chroma at build time**, not runtime. Build does `RUN python -m src.tools.seed_vectorstore` so cold starts skip the seed cost.
+
 ### LangSmith / Langchain tracing
 
 - **Never set `ENV LANGSMITH_TRACING=""` in the Dockerfile** (or anywhere else). The empty-string value is *set*, not *unset*, which makes `os.environ.setdefault("LANGSMITH_TRACING", "true")` a no-op. LangSmith then sees `""` and disables tracing silently — your `LANGSMITH_API_KEY` is never used, no traces appear, no error. Hard to debug.
@@ -132,14 +141,16 @@ web/                   # FastAPI dashboard
 
 mcp_server.py          # MCP stdio server — top-level so it's easy to point Claude Desktop at
 app.py                 # Legacy Streamlit UI
+Dockerfile             # python:3.12-slim, port 7860, pre-seeds Chroma; HF Spaces / generic Docker
+.dockerignore          # keeps secrets, .venv, .chroma, tests out of the image
 
 data/
 ├── seed_incidents.jsonl   # 30 past incidents — RAG corpus
-└── sample_logs/           # Demo input logs
+└── sample_logs/           # 6 demo logs (DB pool, crash loop, OOM, mTLS, multi-incident, latency)
 
 docs/
 ├── ARCHITECTURE.md    # Internals deep dive
-└── OPERATING.md       # Env vars, JIRA setup, troubleshooting
+└── OPERATING.md       # Env vars, JIRA setup, Docker, HF deploy, troubleshooting
 ```
 
 ---
@@ -154,6 +165,8 @@ docs/
 - **Don't mix logging with stdout in `mcp_server.py`** — it'll corrupt the JSON-RPC frames.
 - **Don't pad system prompts to hit the 1024-token caching threshold.** Wait until prompts grow naturally (e.g., adding a shared SRE handbook preamble).
 - **Don't use `threading.local()` for anything that needs to be visible across LangGraph parallel branches.**
+- **Don't `ENV LANGSMITH_TRACING=...` in the Dockerfile** (or any deploy env). Empty string = silently disabled tracing. See LangSmith section above.
+- **Don't deploy to Vercel** — serverless model doesn't fit long-running pipeline + persistent vector store. Use Docker hosts (HF Spaces, Fly.io, Railway, your own server) instead.
 
 ---
 
