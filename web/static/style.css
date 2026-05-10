@@ -106,13 +106,72 @@ body {
   backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 10;
 }
-.brand { display: flex; align-items: baseline; gap: 12px; }
-.brand-mark { color: var(--accent); font-size: 20px; transform: translateY(2px); }
-.brand-title { font-weight: 600; font-size: 16px; letter-spacing: .2px; }
-.brand-tag {
-  font-family: var(--mono); font-size: 11px; color: var(--text-soft);
-  border: 1px solid var(--border); padding: 2px 7px; border-radius: 999px;
+.brand { display: flex; align-items: center; gap: 14px; }
+.brand-mark {
+  color: var(--accent);
+  font-size: 26px; line-height: 1;
+  filter: drop-shadow(0 0 8px rgba(88, 166, 255, .4));
 }
+.brand-text { display: flex; flex-direction: column; line-height: 1.15; }
+.brand-title {
+  font-weight: 800; font-size: 19px;
+  letter-spacing: 2.5px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-strong) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.brand-subtitle {
+  font-size: 11px; color: var(--text-soft);
+  letter-spacing: .3px;
+  margin-top: 1px;
+}
+
+/* Live status pill — replaces the old static 'multi-agent · live' badge.
+   States: idle (grey) / running (blue, pulsing) / complete (green) / error (red). */
+.brand-status {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10.5px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-soft);
+  text-transform: lowercase; letter-spacing: .4px;
+  margin-left: 4px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.brand-status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-soft);
+  flex-shrink: 0;
+}
+.brand-status[data-state="idle"] .brand-status-dot { background: var(--text-soft); }
+.brand-status[data-state="running"] {
+  color: var(--accent);
+  border-color: rgba(88, 166, 255, .5);
+  background: rgba(88, 166, 255, .08);
+}
+.brand-status[data-state="running"] .brand-status-dot {
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
+  animation: status-pulse 1.4s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: .55; transform: scale(1.35); }
+}
+.brand-status[data-state="complete"] {
+  color: var(--ok);
+  border-color: rgba(63, 185, 80, .5);
+  background: rgba(63, 185, 80, .08);
+}
+.brand-status[data-state="complete"] .brand-status-dot { background: var(--ok); }
+.brand-status[data-state="error"] {
+  color: var(--err);
+  border-color: rgba(248, 81, 73, .5);
+  background: rgba(248, 81, 73, .08);
+}
+.brand-status[data-state="error"] .brand-status-dot { background: var(--err); }
 
 .topbar-right { display: flex; align-items: center; gap: 12px; }
 

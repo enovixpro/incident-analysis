@@ -763,6 +763,22 @@ function resetUI() {
   resultsMeta.textContent = "running…";
   renderCostMeter();
   hideAlert();
+  setBrandStatus("running", "analyzing");
+}
+
+// Brand status pill in the topbar — reflects the live run state so the
+// previously-static "multi-agent · live" text actually means something.
+let _brandStatusTimer = null;
+function setBrandStatus(state, text) {
+  const pill = document.getElementById("brand-status");
+  if (!pill) return;
+  pill.dataset.state = state;
+  pill.querySelector(".brand-status-text").textContent = text;
+  if (_brandStatusTimer) { clearTimeout(_brandStatusTimer); _brandStatusTimer = null; }
+}
+function setBrandStatusFading(state, text, ms) {
+  setBrandStatus(state, text);
+  _brandStatusTimer = setTimeout(() => setBrandStatus("idle", "idle"), ms);
 }
 
 // ----- SSE handlers ---------------------------------------------------------------
@@ -826,6 +842,8 @@ function onDone() {
   resultsMeta.textContent = `${aggregate.incidents.length} incident(s) · ${aggregate.slack_messages.length} slack · ${aggregate.jira_tickets.length} jira · ${aggregate.cookbook.length} runbook`;
   if (activeRun) activeRun.close();
   activeRun = null;
+  // Show "complete" briefly, then settle back to idle.
+  setBrandStatusFading("complete", "complete", 4000);
 }
 
 function onError(e) {
@@ -833,6 +851,7 @@ function onError(e) {
   console.error("SSE error", e);
   if (activeRun) activeRun.close();
   activeRun = null;
+  setBrandStatusFading("error", "error", 6000);
 }
 
 // ----- Alert banner (LLM provider errors) -----------------------------------------

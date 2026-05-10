@@ -3,16 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Incident Analysis Suite</title>
+  <title>VIGIL — AI Incident Analyzer</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='28'%3E%E2%96%B2%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark">▲</span>
-      <span class="brand-title">Incident Analysis Suite</span>
-      <span class="brand-tag">multi-agent · live</span>
+      <span class="brand-mark" aria-hidden="true">▲</span>
+      <div class="brand-text">
+        <span class="brand-title">VIGIL</span>
+        <span class="brand-subtitle">AI Incident Analyzer</span>
+      </div>
+      <span class="brand-status" id="brand-status" data-state="idle" aria-live="polite">
+        <span class="brand-status-dot" aria-hidden="true"></span>
+        <span class="brand-status-text">idle</span>
+      </span>
     </div>
     <div class="topbar-right">
       <button class="theme-toggle" id="theme-toggle" type="button" title="Toggle light / dark mode" aria-label="Toggle theme">

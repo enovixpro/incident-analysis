@@ -6,14 +6,25 @@ from playwright.sync_api import expect
 
 def test_page_loads_with_title(page_with_console):
     page, _, _ = page_with_console
-    expect(page).to_have_title("Incident Analysis Suite")
+    expect(page).to_have_title("VIGIL — AI Incident Analyzer")
 
 
 def test_topbar_present(page_with_console):
     page, _, _ = page_with_console
-    expect(page.locator(".brand-title")).to_have_text("Incident Analysis Suite")
+    expect(page.locator(".brand-title")).to_have_text("VIGIL")
+    expect(page.locator(".brand-subtitle")).to_have_text("AI Incident Analyzer")
     expect(page.locator("#cost-meter")).to_be_visible()
     expect(page.locator("#theme-toggle")).to_be_visible()
+
+
+def test_brand_status_starts_idle(page_with_console):
+    """The replacement for the dead 'multi-agent · live' pill — should start idle
+    (grey dot, 'idle' text) on initial load, before any run."""
+    page, _, _ = page_with_console
+    pill = page.locator("#brand-status")
+    expect(pill).to_be_visible()
+    expect(pill).to_have_attribute("data-state", "idle")
+    expect(page.locator("#brand-status .brand-status-text")).to_have_text("idle")
 
 
 def test_three_panels_render(page_with_console):
