@@ -1,6 +1,6 @@
 ---
 title: VIGIL — AI Incident Analyzer
-emoji: ▲
+emoji: 🛡️
 colorFrom: blue
 colorTo: indigo
 sdk: docker
