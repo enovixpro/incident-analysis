@@ -52,19 +52,22 @@
         <select id="sample-select"><option value="">Pick a sample…</option></select>
         <div class="btn-row">
           <button class="btn btn-primary" id="btn-run" disabled>Run pipeline</button>
-          <button class="btn btn-ghost" id="btn-tail" disabled title="Stream the log line-by-line, then run">Tail mode</button>
+          <button class="btn btn-ghost" id="btn-tail" type="button" aria-pressed="false"
+                  title="Toggle tail mode — point at a file and re-read every 60s">Tail mode</button>
         </div>
         <label class="toggle" title="Critic uses a stricter rubric — biases toward rejection so the loop-back edge fires.">
           <input type="checkbox" id="strict-toggle">
           <span>Strict critic <em>(force the self-critique loop)</em></span>
         </label>
-        <label class="upload">
+        <label class="upload" id="upload-label">
           <input type="file" id="file-input" accept=".log,.txt,.json">
-          <span>or upload a file…</span>
+          <span id="upload-label-text">or upload a file…</span>
         </label>
+        <div class="tail-status" id="tail-status" hidden>📡 <span id="tail-status-name"></span></div>
       </div>
 
       <pre class="log-stream" id="log-stream"></pre>
+      <div class="tail-last-updated" id="tail-last-updated" hidden>Last updated: <span id="tail-last-updated-time">—</span></div>
     </section>
 
     <!-- MIDDLE: animated DAG -->

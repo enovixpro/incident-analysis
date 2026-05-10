@@ -79,6 +79,13 @@ These all wasted real time during build. If you're touching the related area, re
 - The pipeline-smoke test (`test_pipeline_no_api.py`) accepts nodes ending in either `node-done` or `node-error` because LLM agents fail-and-fall-back when there's no key — that's expected and the pipeline still completes.
 - **Don't add new UI tests for content that depends on LLM output.** Brittle and not worth it.
 
+### Tail mode (file watching)
+
+- **The "Tail mode" button is a toggle**, not a one-shot pipeline run. Toggling it on swaps the upload label to "Point at a file…" and uses the **File System Access API** (`window.showOpenFilePicker`) to grab a `FileSystemFileHandle`. Polls the file every **60s** and re-renders the textarea + a "Last updated: HH:MM:SS" stamp.
+- **File System Access API needs HTTPS or localhost**, and Chrome/Edge only. Firefox/Safari fall back to the regular `<input type="file">` flow (one-shot read, no auto-refresh) with a console warning. HF Spaces deployment is HTTPS so it works there.
+- The original "stream the log line-by-line then run pipeline" behavior is no longer wired to a button. The `/api/tail` backend endpoint still exists for external callers but the dashboard doesn't call it anymore. Easy to bring back if needed — `kickoff(true)` still works in `app.js`.
+- Polling refresh interval (60s) lives in `TAIL_REFRESH_MS` at the top of `app.js`.
+
 ### Chat assistant
 
 - **`/api/chat` is POST-with-streaming-body**, not SSE-via-EventSource. EventSource doesn't support POST, so the chat uses `fetch()` + manual SSE-frame parsing on the client (`parseSseFrame` in app.js). The frame format is the same as our pipeline streaming — keep it that way so the parser can be reused.

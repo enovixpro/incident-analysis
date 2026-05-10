@@ -90,6 +90,27 @@ def test_chat_drawer_open_close(page_with_console):
     assert drawer.get_attribute("inert") is not None
 
 
+def test_tail_mode_button_toggles(page_with_console):
+    """Tail Mode is a toggle now — pressed state visible, label changes."""
+    page, _, _ = page_with_console
+    btn = page.locator("#btn-tail")
+    label = page.locator("#upload-label-text")
+
+    # Initially: not pressed, default label
+    expect(btn).to_have_attribute("aria-pressed", "false")
+    expect(label).to_contain_text("upload a file")
+
+    # Click → pressed, label flips
+    btn.click()
+    expect(btn).to_have_attribute("aria-pressed", "true")
+    expect(label).to_contain_text("Point at a file")
+
+    # Click again → back to default
+    btn.click()
+    expect(btn).to_have_attribute("aria-pressed", "false")
+    expect(label).to_contain_text("upload a file")
+
+
 def test_strict_critic_toggle_persists_state(page_with_console):
     page, _, _ = page_with_console
     toggle = page.locator("#strict-toggle")

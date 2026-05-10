@@ -194,8 +194,14 @@ const GRAPH_DEF = `flowchart TD
 const $ = (sel) => document.querySelector(sel);
 const sampleSelect = $("#sample-select");
 const fileInput = $("#file-input");
+const uploadLabel = $("#upload-label");
+const uploadLabelText = $("#upload-label-text");
 const btnRun = $("#btn-run");
 const btnTail = $("#btn-tail");
+const tailStatus = $("#tail-status");
+const tailStatusName = $("#tail-status-name");
+const tailLastUpdated = $("#tail-last-updated");
+const tailLastUpdatedTime = $("#tail-last-updated-time");
 const strictToggle = $("#strict-toggle");
 const logStream = $("#log-stream");
 const logMeta = $("#log-meta");
@@ -252,7 +258,8 @@ renderGraph().then(() => {
   fileInput.addEventListener("change", onFile);
   sampleSelect.addEventListener("change", onSample);
   btnRun.addEventListener("click", () => kickoff(false));
-  btnTail.addEventListener("click", () => kickoff(true));
+  btnTail.addEventListener("click", toggleTailMode);
+  uploadLabel.addEventListener("click", onUploadLabelClick);
   document.getElementById("theme-toggle").addEventListener("click", () => {
     const next = (document.documentElement.getAttribute("data-theme") === "dark") ? "light" : "dark";
     localStorage.setItem(THEME_KEY, next);
@@ -591,12 +598,102 @@ function setLog(content, name) {
   currentLog = content;
   currentFilename = name;
   logStream.textContent = content;
-  logStream.scrollTop = 0;
+  logStream.scrollTop = logStream.scrollHeight;  // scroll to bottom (newest)
   logMeta.textContent = `${name} · ${content.length.toLocaleString()} bytes`;
   btnRun.disabled = false;
-  // Tail mode now works for both samples and uploads — the backend accepts either
-  // a sample_name or raw_logs in the request body.
-  btnTail.disabled = false;
+}
+
+// ----- Tail mode (live file watching) ---------------------------------------------
+
+let tailModeOn = false;
+let tailFileHandle = null;        // FileSystemFileHandle when supported
+let tailIntervalId = null;
+const TAIL_REFRESH_MS = 60_000;   // re-read the file once a minute
+
+function toggleTailMode() {
+  tailModeOn = !tailModeOn;
+  btnTail.setAttribute("aria-pressed", String(tailModeOn));
+  uploadLabelText.textContent = tailModeOn ? "📌 Point at a file to tail…" : "or upload a file…";
+
+  if (!tailModeOn) {
+    stopTailing();
+  } else if (tailFileHandle) {
+    // Already had a handle from a previous toggle — restart polling.
+    startTailInterval();
+    showTailStatus(tailFileHandle.name);
+  }
+}
+
+async function onUploadLabelClick(ev) {
+  // Only intercept when tail mode is on AND the browser supports the File System Access API.
+  // Otherwise fall through to the regular <input type="file"> behavior.
+  if (!tailModeOn) return;
+  if (!window.showOpenFilePicker) {
+    // Safari / Firefox: no persistent handle. Let regular upload happen but warn the user once.
+    if (!onUploadLabelClick._warned) {
+      console.warn("[tail] Browser doesn't support File System Access API — falling back to one-shot upload, no auto-refresh.");
+      onUploadLabelClick._warned = true;
+    }
+    return;
+  }
+
+  ev.preventDefault();  // suppress the file input dialog; we'll open our own
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      types: [{
+        description: "Log files",
+        accept: { "text/plain": [".log", ".txt", ".json"] },
+      }],
+    });
+    tailFileHandle = handle;
+    await refreshTailFile();
+    startTailInterval();
+    showTailStatus(handle.name);
+  } catch (err) {
+    if (err.name !== "AbortError") {
+      console.error("[tail] picker failed:", err);
+    }
+  }
+}
+
+async function refreshTailFile() {
+  if (!tailFileHandle) return;
+  try {
+    const file = await tailFileHandle.getFile();
+    const content = await file.text();
+    setLog(content, file.name);
+    updateLastUpdatedTimestamp();
+  } catch (err) {
+    console.error("[tail] refresh failed (file moved/deleted?):", err);
+    stopTailing();
+  }
+}
+
+function startTailInterval() {
+  if (tailIntervalId) clearInterval(tailIntervalId);
+  tailIntervalId = setInterval(refreshTailFile, TAIL_REFRESH_MS);
+}
+
+function stopTailing() {
+  if (tailIntervalId) { clearInterval(tailIntervalId); tailIntervalId = null; }
+  hideTailStatus();
+}
+
+function showTailStatus(name) {
+  tailStatusName.textContent = name;
+  tailStatus.hidden = false;
+  tailLastUpdated.hidden = false;
+  updateLastUpdatedTimestamp();
+}
+
+function hideTailStatus() {
+  tailStatus.hidden = true;
+  tailLastUpdated.hidden = true;
+}
+
+function updateLastUpdatedTimestamp() {
+  tailLastUpdatedTime.textContent = new Date().toLocaleTimeString();
 }
 
 // ----- Run kickoff ----------------------------------------------------------------
